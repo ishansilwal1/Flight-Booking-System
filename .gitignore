@@ -1,0 +1,21 @@
+# Ignore compiled Java files
+*.class
+*.jar
+
+# Ignore IDE-related files
+.idea/
+.vscode/
+*.iml
+
+# Ignore build and dependency directories
+bin/
+out/
+target/
+
+# Ignore log files
+*.log
+
+# Ignore temporary files
+*.tmp
+*.swp
+
