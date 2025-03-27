@@ -52,7 +52,7 @@ The **Flight Management System** is a **Java Swing-based** desktop application d
 ### Steps to Run
 1. Clone the repository:
    ```bash
-  git clone https://github.com/your-repo/flight-management-system.git](https://github.com/ishansilwal1/Flight-Booking-System.git
+   git clone https://github.com/ishansilwal1/Flight-Booking-System.git
    ```
 2. Open the project in your Java IDE.
 3. Compile and run the `Main.java` file.
@@ -82,8 +82,8 @@ Feel free to fork this repository, make improvements, and submit pull requests.
 ## 📞 Contact
 For any issues or inquiries, contact:
 - 📧 Email: ishansilwal3@gmail.com
-- 🔗 GitHub: https://github.com/ishansilwal1
-- 🔗 Linkedin:
+- 🔗 GitHub: [ishansilwal1](https://github.com/ishansilwal1)
 
 ---
-🎉 **Happy Coding & Safe Flights!
+🎉 **Happy Coding & Safe Flights!** ✈️
+
