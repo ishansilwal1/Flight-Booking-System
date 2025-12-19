@@ -18,7 +18,40 @@ import java.util.Scanner;
 public class FlightDataManager implements DataManager {
 
     // File path for the flight data resource
-    private final String RESOURCE = "./resources/data/flights.txt";
+    private final String RESOURCE;
+    
+    public FlightDataManager() {
+        // Get the absolute path relative to the project root
+        String projectRoot = getProjectRoot();
+        RESOURCE = projectRoot + "/resources/data/flights.txt";
+    }
+    
+    private String getProjectRoot() {
+        // Get the location of the class file and navigate to project root
+        String classPath = FlightDataManager.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        // Handle Windows paths (remove leading slash if present)
+        if (classPath.startsWith("/") && classPath.contains(":")) {
+            classPath = classPath.substring(1);
+        }
+        // Decode URL encoding (e.g., %20 for spaces)
+        try {
+            classPath = java.net.URLDecoder.decode(classPath, "UTF-8");
+        } catch (Exception e) {
+            // Ignore decoding errors
+        }
+        java.io.File classDir = new java.io.File(classPath);
+        // Navigate up to find project root (look for resources folder)
+        java.io.File current = classDir.isDirectory() ? classDir : classDir.getParentFile();
+        while (current != null) {
+            java.io.File resourcesDir = new java.io.File(current, "resources");
+            if (resourcesDir.exists() && resourcesDir.isDirectory()) {
+                return current.getAbsolutePath().replace("\\", "/");
+            }
+            current = current.getParentFile();
+        }
+        // Fallback to current working directory
+        return System.getProperty("user.dir").replace("\\", "/");
+    }
 
     /**
      * Loads flight data from the specified file into the FlightBookingSystem.

@@ -23,6 +23,37 @@ public class LoginWindow extends JFrame implements ActionListener {
     private JLabel messageLabel = new JLabel();
 
     /**
+     * Gets the project root directory by searching for the resources folder.
+     * @return the absolute path to the project root
+     */
+    private String getProjectRoot() {
+        // Get the location of the class file and navigate to project root
+        String classPath = LoginWindow.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        // Handle Windows paths (remove leading slash if present)
+        if (classPath.startsWith("/") && classPath.contains(":")) {
+            classPath = classPath.substring(1);
+        }
+        // Decode URL encoding (e.g., %20 for spaces)
+        try {
+            classPath = java.net.URLDecoder.decode(classPath, "UTF-8");
+        } catch (Exception e) {
+            // Ignore decoding errors
+        }
+        File classDir = new File(classPath);
+        // Navigate up to find project root (look for resources folder)
+        File current = classDir.isDirectory() ? classDir : classDir.getParentFile();
+        while (current != null) {
+            File resourcesDir = new File(current, "resources");
+            if (resourcesDir.exists() && resourcesDir.isDirectory()) {
+                return current.getAbsolutePath().replace("\\", "/");
+            }
+            current = current.getParentFile();
+        }
+        // Fallback to current working directory
+        return System.getProperty("user.dir").replace("\\", "/");
+    }
+
+    /**
      * Constructs a new LoginWindow.
      *
      * @param fbs the flight booking system instance
@@ -67,7 +98,8 @@ public class LoginWindow extends JFrame implements ActionListener {
             }
         };
         leftPanel.setLayout(new BorderLayout());
-        File imageFile = new File("resources/icons/Login.png");
+        String imagePath = getProjectRoot() + "/resources/icons/Login.png";
+        File imageFile = new File(imagePath);
         if (imageFile.exists()) {
             ImageIcon originalIcon = new ImageIcon(imageFile.getAbsolutePath());
             Image scaledImage = originalIcon.getImage().getScaledInstance(300, 400, Image.SCALE_SMOOTH);

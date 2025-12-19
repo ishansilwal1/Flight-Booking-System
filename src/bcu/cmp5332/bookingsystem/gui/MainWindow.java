@@ -26,6 +26,15 @@ public class MainWindow extends JFrame implements ActionListener {
     private JTable currentTable;
     private boolean isAdmin;
     private Integer loggedInCustomerId;
+    
+    // UI Components that need to persist
+    private JPanel sidebarPanel;
+    private JPanel contentPanel;
+    private JLabel headerLabel;
+    
+    // Track current active section
+    private enum Section { HOME, FLIGHTS, BOOKINGS, CUSTOMERS, ADMIN }
+    private Section currentSection = Section.HOME;
 
     private JMenuBar menuBar;
     private JMenu adminMenu, flightsMenu, bookingsMenu, customersMenu;
@@ -76,19 +85,51 @@ public class MainWindow extends JFrame implements ActionListener {
     }
 
     /**
+     * Gets the project root directory by searching for the resources folder.
+     * @return the absolute path to the project root
+     */
+    private String getProjectRoot() {
+        // Get the location of the class file and navigate to project root
+        String classPath = MainWindow.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        // Handle Windows paths (remove leading slash if present)
+        if (classPath.startsWith("/") && classPath.contains(":")) {
+            classPath = classPath.substring(1);
+        }
+        // Decode URL encoding (e.g., %20 for spaces)
+        try {
+            classPath = java.net.URLDecoder.decode(classPath, "UTF-8");
+        } catch (Exception e) {
+            // Ignore decoding errors
+        }
+        File classDir = new File(classPath);
+        // Navigate up to find project root (look for resources folder)
+        File current = classDir.isDirectory() ? classDir : classDir.getParentFile();
+        while (current != null) {
+            File resourcesDir = new File(current, "resources");
+            if (resourcesDir.exists() && resourcesDir.isDirectory()) {
+                return current.getAbsolutePath().replace("\\", "/");
+            }
+            current = current.getParentFile();
+        }
+        // Fallback to current working directory
+        return System.getProperty("user.dir").replace("\\", "/");
+    }
+
+    /**
      * Loads and scales an icon from the specified file path.
      *
-     * @param path the file path of the icon
+     * @param path the relative file path of the icon (e.g., "resources/icons/view.png")
      * @param width the desired width of the icon
      * @param height the desired height of the icon
      * @return the scaled ImageIcon
      */
     private ImageIcon loadScaledIcon(String path, int width, int height) {
-        File f = new File(path);
+        String absolutePath = getProjectRoot() + "/" + path;
+        File f = new File(absolutePath);
         if (!f.exists()) {
-            System.err.println("Icon file not found: " + path);
+            System.err.println("Icon file not found: " + absolutePath);
         }
-        ImageIcon icon = new ImageIcon(path);
+        ImageIcon icon = new ImageIcon(absolutePath);
         Image scaledImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
         return new ImageIcon(scaledImage);
     }
@@ -99,21 +140,138 @@ public class MainWindow extends JFrame implements ActionListener {
     private void initialize() {
         setTitle("Flight Booking Management System");
         setSize(1000, 600);
-        getContentPane().setBackground(new Color(0xF5F5F5)); // Set background color to light gray
+        setLayout(new BorderLayout());
+        getContentPane().setBackground(new Color(0xF5F5F5));
+        
+        // Initialize persistent UI components
+        initializeMainLayout();
         initMenuBar();
-        addWelcomeMessage(); // Add welcome message
-        createSidebarMenu(); // Add sidebar menu
-        addCommonLayout();
+        
+        // Show welcome/home screen
+        showHomeScreen();
+    }
+    
+    /**
+     * Initializes the main layout with sidebar and content area.
+     */
+    private void initializeMainLayout() {
+        // Create sidebar panel
+        sidebarPanel = new JPanel();
+        sidebarPanel.setBackground(new Color(0x1E3A5F));
+        sidebarPanel.setPreferredSize(new Dimension(180, 0));
+        getContentPane().add(sidebarPanel, BorderLayout.WEST);
+        
+        // Create content panel
+        contentPanel = new JPanel(new BorderLayout());
+        contentPanel.setBackground(new Color(0xF5F5F5));
+        getContentPane().add(contentPanel, BorderLayout.CENTER);
+        
+        // Create header label
+        headerLabel = new JLabel("Welcome to ISAM Airlines", JLabel.CENTER);
+        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
+        headerLabel.setForeground(new Color(0x1E3A5F));
+        headerLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+        getContentPane().add(headerLabel, BorderLayout.NORTH);
+    }
+    
+    /**
+     * Shows the home/welcome screen.
+     */
+    private void showHomeScreen() {
+        currentSection = Section.HOME;
+        setHeader("Welcome to ISAM Airlines");
+        updateSidebar(getHomeSidebarButtons());
+        showWelcomeImage();
+    }
+    
+    /**
+     * Updates the header label text.
+     */
+    private void setHeader(String text) {
+        headerLabel.setText(text);
+    }
+    
+    /**
+     * Updates the sidebar with the given buttons.
+     */
+    private void updateSidebar(List<JButton> buttons) {
+        sidebarPanel.removeAll();
+        sidebarPanel.setLayout(new GridLayout(Math.max(buttons.size(), 6), 1, 5, 5));
+        sidebarPanel.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
+        
+        for (JButton button : buttons) {
+            button.setFocusPainted(false);
+            button.setBorderPainted(false);
+            button.setFont(new Font("SansSerif", Font.BOLD, 14));
+            sidebarPanel.add(button);
+        }
+        
+        sidebarPanel.revalidate();
+        sidebarPanel.repaint();
+    }
+    
+    /**
+     * Updates the content panel with the given component.
+     */
+    private void updateContent(Component component) {
+        contentPanel.removeAll();
+        contentPanel.add(component, BorderLayout.CENTER);
+        contentPanel.revalidate();
+        contentPanel.repaint();
+    }
+    
+    /**
+     * Shows the welcome image in the content area.
+     */
+    private void showWelcomeImage() {
+        String imagePath = getProjectRoot() + "/resources/icons/main3.png";
+        ImageIcon originalIcon = new ImageIcon(imagePath);
+        JLabel imageLabel = new JLabel(originalIcon);
+        imageLabel.setHorizontalAlignment(JLabel.CENTER);
+        updateContent(imageLabel);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setVisible(true);
+    }
+    
+    /**
+     * Gets the sidebar buttons for the home screen.
+     */
+    private List<JButton> getHomeSidebarButtons() {
+        List<JButton> buttons = new ArrayList<>();
+        
+        if (isAdmin) {
+            buttons.add(createSidebarButton("View All Flights", new Color(0x1976D2), e -> displayAllFlights()));
+            buttons.add(createSidebarButton("View All Customers", new Color(0x1976D2), e -> displayAllCustomers()));
+            buttons.add(createSidebarButton("View All Bookings", new Color(0x1976D2), e -> displayAllBookings()));
+            buttons.add(createSidebarButton("Add Flight", new Color(0xFF9800), e -> new AddFlightWindow(this)));
+            buttons.add(createSidebarButton("Add Customer", new Color(0xFF9800), e -> new AddCustomerWindow(this)));
+            buttons.add(createSidebarButton("New Booking", new Color(0xFF9800), e -> new AddBookingWindow(this)));
+        } else {
+            buttons.add(createSidebarButton("View Flights", new Color(0x1976D2), e -> displayUpcomingFlights()));
+            buttons.add(createSidebarButton("My Bookings", new Color(0x1976D2), e -> displayMyBookings()));
+            buttons.add(createSidebarButton("New Booking", new Color(0xFF9800), e -> new AddBookingWindow(this)));
+            buttons.add(createSidebarButton("Cancel Booking", new Color(0xFF9800), e -> new CancelBookingWindow(this)));
+        }
+        
+        return buttons;
+    }
+    
+    /**
+     * Helper method to create a styled sidebar button.
+     */
+    private JButton createSidebarButton(String text, Color bgColor, ActionListener action) {
+        JButton button = new JButton(text);
+        button.setBackground(bgColor);
+        button.setForeground(Color.WHITE);
+        button.addActionListener(action);
+        return button;
     }
 
     /**
      * Adds a welcome message to the window.
      */
     private void addWelcomeMessage() {
-        JLabel welcomeLabel = new JLabel("Welcome to ISAM Airlines", JLabel.CENTER);
-        welcomeLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
-        welcomeLabel.setForeground(new Color(0x1E3A5F)); // Dark blue color
-        getContentPane().add(welcomeLabel, BorderLayout.NORTH);
+        // Now handled by headerLabel
     }
 
     /**
@@ -262,6 +420,8 @@ public class MainWindow extends JFrame implements ActionListener {
             customersMenu.removeAll();
             addAdminCustomerMenuItems(new Font("SansSerif", Font.BOLD, 18));
         }
+        // Refresh the sidebar to show appropriate buttons for the user role
+        updateSidebar(getHomeSidebarButtons());
     }
 
     /**
@@ -272,13 +432,50 @@ public class MainWindow extends JFrame implements ActionListener {
      */
     private void refreshTable(JTable table, String title) {
         System.out.println("Refreshing table: " + title);
-        getContentPane().removeAll();
+        setHeader(title);
         JScrollPane scrollPane = new JScrollPane(table);
-        getContentPane().add(scrollPane, BorderLayout.CENTER);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        updateContent(scrollPane);
         setTitle("Flight Booking System - " + title);
-        revalidate();
-        repaint();
         currentTable = table;
+    }
+    
+    /**
+     * Displays bookings for the logged-in customer.
+     */
+    public void displayMyBookings() {
+        if (loggedInCustomerId == null) {
+            JOptionPane.showMessageDialog(this, "You must be logged in to view your bookings.",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            Customer customer = fbs.getCustomerByID(loggedInCustomerId);
+            List<Booking> myBookings = customer.getBookings();
+            String[] columns = {"Booking ID", "Flight", "Origin", "Destination", "Date", "Fee"};
+            Object[][] data = new Object[myBookings.size()][6];
+            for (int i = 0; i < myBookings.size(); i++) {
+                Booking booking = myBookings.get(i);
+                Flight flight = booking.getFlight();
+                data[i][0] = booking.getId();
+                data[i][1] = flight.getFlightNumber();
+                data[i][2] = flight.getOrigin();
+                data[i][3] = flight.getDestination();
+                data[i][4] = booking.getBookingDate();
+                data[i][5] = String.format("$%.2f", booking.getBookingFee());
+            }
+            JTable table = new JTable(data, columns) {
+                private static final long serialVersionUID = 1L;
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return false;
+                }
+            };
+            refreshTable(table, "My Bookings");
+        } catch (FlightBookingSystemException ex) {
+            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     /**
@@ -686,54 +883,6 @@ public class MainWindow extends JFrame implements ActionListener {
         // Not used directly; individual menu items have their own listeners.
     }
 
-    private void createSidebarMenu() {
-        List<JButton> buttons = new ArrayList<>();
-        JButton viewCustomersButton = new JButton("View Customers");
-        viewCustomersButton.setBackground(new Color(0x1976D2)); // Blue color
-        viewCustomersButton.setForeground(Color.WHITE);
-        viewCustomersButton.addActionListener(e -> displayAllCustomers());
-        buttons.add(viewCustomersButton);
-
-        JButton addBookingButton = new JButton("Add Booking");
-        addBookingButton.setBackground(new Color(0xFF9800)); // Orange color
-        addBookingButton.setForeground(Color.WHITE);
-        addBookingButton.addActionListener(e -> new AddBookingWindow(this));
-        buttons.add(addBookingButton);
-
-        JButton issueBookingButton = new JButton("Issue Booking");
-        issueBookingButton.setBackground(new Color(0xFF9800)); // Orange color
-        issueBookingButton.setForeground(Color.WHITE);
-        issueBookingButton.addActionListener(e -> new AddBookingWindow(this));
-        buttons.add(issueBookingButton);
-
-        JButton cancelBookingButton = new JButton("Cancel Booking");
-        cancelBookingButton.setBackground(new Color(0xFF9800)); // Orange color
-        cancelBookingButton.setForeground(Color.WHITE);
-        cancelBookingButton.addActionListener(e -> new CancelBookingWindow(this));
-        buttons.add(cancelBookingButton);
-
-        createSidebarMenu(buttons);
-    }
-
-    /**
-     * Creates the sidebar menu with the specified buttons.
-     *
-     * @param buttons the list of buttons to be added to the sidebar
-     */
-    private void createSidebarMenu(List<JButton> buttons) {
-        JPanel sidebar = new JPanel();
-        sidebar.setLayout(new GridLayout(buttons.size(), 1, 10, 10));
-        sidebar.setBackground(new Color(0x1E3A5F)); // Dark blue background
-
-        for (JButton button : buttons) {
-            sidebar.add(button);
-        }
-
-        getContentPane().add(sidebar, BorderLayout.WEST);
-        revalidate();
-        repaint();
-    }
-
     /**
      * Returns the list of buttons for the flights menu.
      *
@@ -741,36 +890,17 @@ public class MainWindow extends JFrame implements ActionListener {
      */
     private List<JButton> getFlightsButtons() {
         List<JButton> buttons = new ArrayList<>();
-
-        JButton viewUpcomingButton = new JButton("View Upcoming Flights");
-        viewUpcomingButton.setBackground(new Color(0x1976D2)); // Blue color
-        viewUpcomingButton.setForeground(Color.WHITE);
-        viewUpcomingButton.addActionListener(e -> displayUpcomingFlights());
-        buttons.add(viewUpcomingButton);
-
-        JButton viewAllButton = new JButton("View All Flights");
-        viewAllButton.setBackground(new Color(0x1976D2)); // Blue color
-        viewAllButton.setForeground(Color.WHITE);
-        viewAllButton.addActionListener(e -> displayAllFlights());
-        buttons.add(viewAllButton);
-
-        JButton addFlightButton = new JButton("Add New Flight");
-        addFlightButton.setBackground(new Color(0xFF9800)); // Orange color
-        addFlightButton.setForeground(Color.WHITE);
-        addFlightButton.addActionListener(e -> new AddFlightWindow(this));
-        buttons.add(addFlightButton);
-
-        JButton deleteFlightButton = new JButton("Delete Flight");
-        deleteFlightButton.setBackground(new Color(0xFF9800)); // Orange color
-        deleteFlightButton.setForeground(Color.WHITE);
-        deleteFlightButton.addActionListener(e -> deleteSelectedFlight());
-        buttons.add(deleteFlightButton);
-
-        JButton filterFlightsButton = new JButton("Filter Flights");
-        filterFlightsButton.setBackground(new Color(0x1976D2)); // Blue color
-        filterFlightsButton.setForeground(Color.WHITE);
-        filterFlightsButton.addActionListener(e -> new FilterFlightsWindow(fbs));
-        buttons.add(filterFlightsButton);
+        
+        buttons.add(createSidebarButton("View Upcoming", new Color(0x1976D2), e -> displayUpcomingFlights()));
+        buttons.add(createSidebarButton("View All Flights", new Color(0x1976D2), e -> displayAllFlights()));
+        buttons.add(createSidebarButton("Filter Flights", new Color(0x1976D2), e -> new FilterFlightsWindow(fbs)));
+        
+        if (isAdmin) {
+            buttons.add(createSidebarButton("Add Flight", new Color(0xFF9800), e -> new AddFlightWindow(this)));
+            buttons.add(createSidebarButton("Delete Flight", new Color(0xFF9800), e -> deleteSelectedFlight()));
+        }
+        
+        buttons.add(createSidebarButton("← Back to Home", new Color(0x607D8B), e -> showHomeScreen()));
 
         return buttons;
     }
@@ -783,35 +913,17 @@ public class MainWindow extends JFrame implements ActionListener {
     private List<JButton> getBookingsButtons() {
         List<JButton> buttons = new ArrayList<>();
 
-        JButton viewBookingsButton = new JButton("View Bookings");
-        viewBookingsButton.setBackground(new Color(0x1976D2)); // Blue color
-        viewBookingsButton.setForeground(Color.WHITE);
-        viewBookingsButton.addActionListener(e -> displayBookings());
-        buttons.add(viewBookingsButton);
-
-        JButton newBookingButton = new JButton("New Booking");
-        newBookingButton.setBackground(new Color(0xFF9800)); // Orange color
-        newBookingButton.setForeground(Color.WHITE);
-        newBookingButton.addActionListener(e -> new AddBookingWindow(this));
-        buttons.add(newBookingButton);
-
-        JButton updateBookingButton = new JButton("Update Booking");
-        updateBookingButton.setBackground(new Color(0xFF9800)); // Orange color
-        updateBookingButton.setForeground(Color.WHITE);
-        updateBookingButton.addActionListener(e -> new UpdateBookingWindow(this));
-        buttons.add(updateBookingButton);
-
-        JButton cancelBookingButton = new JButton("Cancel Booking");
-        cancelBookingButton.setBackground(new Color(0xFF9800)); // Orange color
-        cancelBookingButton.setForeground(Color.WHITE);
-        cancelBookingButton.addActionListener(e -> new CancelBookingWindow(this));
-        buttons.add(cancelBookingButton);
-
-        JButton viewAllBookingsButton = new JButton("View All Bookings");
-        viewAllBookingsButton.setBackground(new Color(0x1976D2)); // Blue color
-        viewAllBookingsButton.setForeground(Color.WHITE);
-        viewAllBookingsButton.addActionListener(e -> displayAllBookings());
-        buttons.add(viewAllBookingsButton);
+        if (isAdmin) {
+            buttons.add(createSidebarButton("View All Bookings", new Color(0x1976D2), e -> displayAllBookings()));
+            buttons.add(createSidebarButton("Active Bookings", new Color(0x1976D2), e -> displayBookings()));
+        } else {
+            buttons.add(createSidebarButton("My Bookings", new Color(0x1976D2), e -> displayMyBookings()));
+        }
+        
+        buttons.add(createSidebarButton("New Booking", new Color(0xFF9800), e -> new AddBookingWindow(this)));
+        buttons.add(createSidebarButton("Update Booking", new Color(0xFF9800), e -> new UpdateBookingWindow(this)));
+        buttons.add(createSidebarButton("Cancel Booking", new Color(0xFF9800), e -> new CancelBookingWindow(this)));
+        buttons.add(createSidebarButton("← Back to Home", new Color(0x607D8B), e -> showHomeScreen()));
 
         return buttons;
     }
@@ -824,35 +936,17 @@ public class MainWindow extends JFrame implements ActionListener {
     private List<JButton> getCustomersButtons() {
         List<JButton> buttons = new ArrayList<>();
 
-        JButton viewActiveCustomersButton = new JButton("View Active Customers");
-        viewActiveCustomersButton.setBackground(new Color(0x1976D2)); // Blue color
-        viewActiveCustomersButton.setForeground(Color.WHITE);
-        viewActiveCustomersButton.addActionListener(e -> displayActiveCustomers());
-        buttons.add(viewActiveCustomersButton);
-
-        JButton viewAllCustomersButton = new JButton("View All Customers");
-        viewAllCustomersButton.setBackground(new Color(0x1976D2)); // Blue color
-        viewAllCustomersButton.setForeground(Color.WHITE);
-        viewAllCustomersButton.addActionListener(e -> displayAllCustomers());
-        buttons.add(viewAllCustomersButton);
-
-        JButton addCustomerButton = new JButton("Add New Customer");
-        addCustomerButton.setBackground(new Color(0xFF9800)); // Orange color
-        addCustomerButton.setForeground(Color.WHITE);
-        addCustomerButton.addActionListener(e -> new AddCustomerWindow(this));
-        buttons.add(addCustomerButton);
-
-        JButton updateCustomerButton = new JButton("Update Customer");
-        updateCustomerButton.setBackground(new Color(0xFF9800)); // Orange color
-        updateCustomerButton.setForeground(Color.WHITE);
-        updateCustomerButton.addActionListener(e -> new UpdateCustomerWindow(this));
-        buttons.add(updateCustomerButton);
-
-        JButton deleteCustomerButton = new JButton("Delete Customer");
-        deleteCustomerButton.setBackground(new Color(0xFF9800)); // Orange color
-        deleteCustomerButton.setForeground(Color.WHITE);
-        deleteCustomerButton.addActionListener(e -> deleteSelectedCustomer());
-        buttons.add(deleteCustomerButton);
+        if (isAdmin) {
+            buttons.add(createSidebarButton("Active Customers", new Color(0x1976D2), e -> displayActiveCustomers()));
+            buttons.add(createSidebarButton("All Customers", new Color(0x1976D2), e -> displayAllCustomers()));
+            buttons.add(createSidebarButton("Add Customer", new Color(0xFF9800), e -> new AddCustomerWindow(this)));
+            buttons.add(createSidebarButton("Update Customer", new Color(0xFF9800), e -> new UpdateCustomerWindow(this)));
+            buttons.add(createSidebarButton("Delete Customer", new Color(0xFF9800), e -> deleteSelectedCustomer()));
+        } else {
+            buttons.add(createSidebarButton("My Details", new Color(0x1976D2), e -> displayCustomerDetails(loggedInCustomerId)));
+        }
+        
+        buttons.add(createSidebarButton("← Back to Home", new Color(0x607D8B), e -> showHomeScreen()));
 
         return buttons;
     }
@@ -861,109 +955,48 @@ public class MainWindow extends JFrame implements ActionListener {
      * Displays the flights form.
      */
     private void displayFlightsForm() {
-        // Clear the right side content
-        getContentPane().removeAll();
-        createSidebarMenu(getFlightsButtons());
-
-        // Add the flights form or function
-        JLabel flightsLabel = new JLabel("Flights Form", JLabel.CENTER);
-        flightsLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
-        flightsLabel.setForeground(new Color(0x1E3A5F)); // Dark blue color
-        getContentPane().add(flightsLabel, BorderLayout.NORTH);
-
-        // Add common layout elements
-        addCommonLayout();
-
-        // Set the background color again
-        getContentPane().setBackground(new Color(0xF5F5F5)); // Light gray background
-
-        revalidate();
-        repaint();
+        currentSection = Section.FLIGHTS;
+        setHeader("Flights Management");
+        updateSidebar(getFlightsButtons());
+        showWelcomeImage();
     }
 
     /**
      * Displays the bookings form.
      */
     private void displayBookingsForm() {
-        // Clear the right side content
-        getContentPane().removeAll();
-        createSidebarMenu(getBookingsButtons());
-
-        // Add the bookings form or function
-        JLabel bookingsLabel = new JLabel("Bookings Form", JLabel.CENTER);
-        bookingsLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
-        bookingsLabel.setForeground(new Color(0x1E3A5F)); // Dark blue color
-        getContentPane().add(bookingsLabel, BorderLayout.NORTH);
-
-        // Add common layout elements
-        addCommonLayout();
-
-        // Set the background color again
-        getContentPane().setBackground(new Color(0xF5F5F5)); // Light gray background
-
-        revalidate();
-        repaint();
+        currentSection = Section.BOOKINGS;
+        setHeader("Bookings Management");
+        updateSidebar(getBookingsButtons());
+        showWelcomeImage();
     }
 
     /**
      * Displays the customers form.
      */
     private void displayCustomersForm() {
-        // Clear the right side content
-        getContentPane().removeAll();
-        createSidebarMenu(getCustomersButtons());
-
-        // Add the customers form or function
-        JLabel customersLabel = new JLabel("Customers Form", JLabel.CENTER);
-        customersLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
-        customersLabel.setForeground(new Color(0x1E3A5F)); // Dark blue color
-        getContentPane().add(customersLabel, BorderLayout.NORTH);
-
-        // Add common layout elements
-        addCommonLayout();
-
-        // Set the background color again
-        getContentPane().setBackground(new Color(0xF5F5F5)); // Light gray background
-
-        revalidate();
-        repaint();
+        currentSection = Section.CUSTOMERS;
+        setHeader("Customers Management");
+        updateSidebar(getCustomersButtons());
+        showWelcomeImage();
     }
 
     /**
      * Adds common layout elements to the window.
      */
     private void addCommonLayout() {
-        // Add image to the center at its original size
-        ImageIcon originalIcon = new ImageIcon("resources/icons/main3.png");
-        JLabel imageLabel = new JLabel(originalIcon);
-        getContentPane().add(imageLabel, BorderLayout.CENTER);
-
-        // Set the background color again
-        getContentPane().setBackground(new Color(0xF5F5F5)); // Light gray background
-
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setVisible(true);
+        // This method is now replaced by showWelcomeImage()
+        showWelcomeImage();
     }
 
     /**
      * Displays the admin form.
      */
     private void displayAdminForm() {
-        // Clear the right side content
-        getContentPane().removeAll();
-        createSidebarMenu(getAdminButtons());
-
-        // Add the admin form or function
-        JLabel adminLabel = new JLabel("Admin Form", JLabel.CENTER);
-        adminLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
-        adminLabel.setForeground(new Color(0x1E3A5F)); // Dark blue color
-        getContentPane().add(adminLabel, BorderLayout.NORTH);
-
-        // Add common layout elements
-        addCommonLayout();
-
-        revalidate();
-        repaint();
+        currentSection = Section.ADMIN;
+        setHeader("Admin Dashboard");
+        updateSidebar(getAdminButtons());
+        showWelcomeImage();
     }
 
     /**
@@ -974,23 +1007,13 @@ public class MainWindow extends JFrame implements ActionListener {
     private List<JButton> getAdminButtons() {
         List<JButton> buttons = new ArrayList<>();
 
-        JButton viewCustomersButton = new JButton("View Customers");
-        viewCustomersButton.setBackground(new Color(0x1976D2)); // Blue color
-        viewCustomersButton.setForeground(Color.WHITE);
-        viewCustomersButton.addActionListener(e -> displayAllCustomers());
-        buttons.add(viewCustomersButton);
-
-        JButton addFlightButton = new JButton("Add New Flight");
-        addFlightButton.setBackground(new Color(0xFF9800)); // Orange color
-        addFlightButton.setForeground(Color.WHITE);
-        addFlightButton.addActionListener(e -> new AddFlightWindow(this));
-        buttons.add(addFlightButton);
-
-        JButton deleteFlightButton = new JButton("Delete Flight");
-        deleteFlightButton.setBackground(new Color(0xFF9800)); // Orange color
-        deleteFlightButton.setForeground(Color.WHITE);
-        deleteFlightButton.addActionListener(e -> deleteSelectedFlight());
-        buttons.add(deleteFlightButton);
+        buttons.add(createSidebarButton("All Flights", new Color(0x1976D2), e -> displayAllFlights()));
+        buttons.add(createSidebarButton("All Customers", new Color(0x1976D2), e -> displayAllCustomers()));
+        buttons.add(createSidebarButton("All Bookings", new Color(0x1976D2), e -> displayAllBookings()));
+        buttons.add(createSidebarButton("Add Flight", new Color(0xFF9800), e -> new AddFlightWindow(this)));
+        buttons.add(createSidebarButton("Add Customer", new Color(0xFF9800), e -> new AddCustomerWindow(this)));
+        buttons.add(createSidebarButton("Delete Flight", new Color(0xFF9800), e -> deleteSelectedFlight()));
+        buttons.add(createSidebarButton("← Back to Home", new Color(0x607D8B), e -> showHomeScreen()));
 
         return buttons;
     }
